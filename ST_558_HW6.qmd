@@ -1,0 +1,376 @@
+---
+title: "ST-558 Homework 6"
+author: "Jay Thakur"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Task 1: Conceptual Questions
+
+1.  **What is the purpose of the lapply() function? What is the equivalent purrr function?**
+
+> lapply() function applies the operation or function to each element of the list and returns the list of outputs with the same length. Each element in output list will be result of function applied to each element. Equivalent function to lapply() in purrr is map() which does same thing with more consistency and flexibility.
+
+2.  **Suppose we have a list called my_list. Each element of the list is a numeric data frame (all columns are numeric). We want use lapply() to run the code cor(numeric_matrix, method = "kendall") on each element of the list. Write code to do this below! (I’m really trying to ask you how you specify method = "kendall" when calling lapply())**
+
+> To use cor() with lapply we have to give first input as list, second as name of function which is cor and additional parameter can be passed which will be method. So code would be like 
+
+> new_list <- lapply(my_list, cor, method = "kendall")
+
+3.  **What are two advantages of using purrr functions instead of the BaseR apply family?**
+
+> a.  purrr function always return consistent data type outputs which reduces chances of getting output with unexpected data types. Like map() returns list.
+> b.  purrr has error handling with safely() etc which allows us to do exception handling and return some default value instead of breaking code flow.
+
+4.  **What is a side-effect function?**
+
+> Side-effect function are function which performs operations other than just returning values which also affects entire environment. E.g., print(), cat()
+
+5.  **Why can you name a variable sd in a function and not cause any issues with the sd function?**
+
+> Due to variable scoping in R, function call will prioritize the environmemt where they are defined. So as long as we don't overwrite the function sd in global environment, variable with name sd in function will not conflict with built in sd() as it will check for local variables then move to parent environment.
+
+## Task 2: Writing R Functions
+
+### 1. Writing RMSE Function
+
+```{r}
+getRMSE <- function(observed, predicted) {
+  sqrt(mean((observed - predicted)^2))
+}
+```
+
+Using ellipsis in function parameters
+
+```{r}
+getRMSE <- function(observed, predicted, ...) {
+  sqrt(mean((observed - predicted)^2, ...))
+}
+```
+
+### 2. Create response value and predictions
+
+```{r}
+set.seed(10)
+n <- 100
+x <- runif(n)
+resp <- 3 + 10 * x + rnorm(n)
+pred <- predict(lm(resp~ x), data.frame(x))
+```
+
+Test using resp and pred
+
+```{r}
+rmse_result <- getRMSE(resp, pred)
+rmse_result
+```
+
+Replace with missing value
+
+```{r}
+resp[1:2] <- NA_real_
+```
+
+Testing without removing NA values
+
+```{r}
+rmse_result <- getRMSE(resp, pred)
+rmse_result
+```
+
+As we can see with missing values the function will return NA as output.
+
+Testing with using na.rm = True
+
+```{r}
+rmse_result <- getRMSE(resp, pred, na.rm = TRUE)
+rmse_result
+```
+
+Using na.rm as True will remove missing values and function will return actual error value.
+
+### 3. Create MAE function
+
+```{r}
+getMAE <- function(observed, predicted, ...) {
+  mean(abs(observed - predicted), ...)
+}
+```
+
+### 4. Create response and prediction values. Test the function
+
+```{r}
+set.seed(10)
+n <- 100
+x <- runif(n)
+resp <- 3 + 10 * x + rnorm(n)
+pred <- predict(lm(resp ~ x), data.frame(x))
+
+mae_result <- getMAE(resp, pred)
+mae_result
+
+```
+
+Add some missing values
+
+```{r}
+resp[1:2] <- NA_real_
+```
+
+Testing without removing NA values
+
+```{r}
+mae_result <- getMAE(resp, pred)
+mae_result
+```
+
+Testing with using na.rm = True
+
+```{r}
+mae_result <- getMAE(resp, pred, na.rm = TRUE)
+mae_result
+```
+
+Same behaviour can be seen with function calculating MAE as well.
+
+### 5. Create a wrapper function
+
+```{r}
+getError <- function(observed, predicted, metrics = c("RMSE", "MAE"), ...) {
+  
+  if (!(is.atomic(observed) && is.vector(observed) && is.numeric(observed))) {
+    stop("The response input must be atomic numeric vector.")
+  }
+  if (!(is.atomic(predicted) && is.vector(predicted) && is.numeric(predicted))) {
+    stop("The predicted input must be atomic numeric vector.")
+  }
+  
+  results <- list()
+  
+  if ("RMSE" %in% metrics) {
+    results$RMSE <- getRMSE(observed, predicted, ...)
+  }
+  
+  if ("MAE" %in% metrics) {
+    results$MAE <- getMAE(observed, predicted, ...)
+  }
+  return(results)
+}
+```
+
+### 6. Generate the data
+
+```{r}
+set.seed(10)
+n <- 100
+x <- runif(n)
+resp <- 3 + 10 * x + rnorm(n)
+pred <- predict(lm(resp~ x), data.frame(x))
+```
+
+### 7. Testing function calls
+
+```{r}
+rmse_result <- getError(resp, pred, metrics = "RMSE")
+print(rmse_result)
+```
+
+```{r}
+mae_result <- getError(resp, pred, metrics = "MAE")
+print(mae_result)
+```
+
+```{r}
+both_error <- getError(resp, pred)
+print(both_error)
+```
+
+Add missing values
+
+```{r}
+resp[1:2] <- NA_real_
+```
+
+Testing without removing NA Values
+
+```{r}
+rmse_result <- getError(resp, pred, metrics = "RMSE")
+print(rmse_result)
+```
+
+```{r}
+mae_result <- getError(resp, pred, metrics = "MAE")
+print(mae_result)
+```
+
+```{r}
+both_error <- getError(resp, pred)
+print(both_error)
+```
+
+Calling function after removing NA Values
+
+```{r}
+rmse_result <- getError(resp, pred, metrics = "RMSE", na.rm = TRUE)
+print(rmse_result)
+```
+
+```{r}
+mae_result <- getError(resp, pred, metrics = "MAE", na.rm = TRUE)
+print(mae_result)
+```
+
+```{r}
+both_error <- getError(resp, pred, na.rm = TRUE)
+print(both_error)
+```
+
+Passing incorrect data type
+
+Passing data frame
+
+```{r}
+test_1 <- try(getError(data.frame(resp), pred), silent = TRUE)
+print(test_1)
+```
+
+Passing char vector
+
+```{r}
+test_2 <- try(getError(as.character(resp), pred), silent = TRUE)
+print(test_2)
+```
+
+## Task 3: Querying an API and a Tidy-Style Function
+
+### 1. Querying News API
+
+```{r}
+library(httr)
+library(purrr)
+library(dplyr)
+
+api_key <- "be56f597af854b8a808b8664ddb8665f"
+url <- "https://newsapi.org/v2/everything"
+query <- list(
+  q = "technology",
+  from = "2024-09-16",
+  sortBy = "publishedAt",
+  apiKey = api_key
+)
+
+response <- GET(url, query = query)
+
+response
+```
+
+### 2. Parsing the API response
+
+```{r}
+content_data <- content(response, as = "parsed", simplifyDataFrame = TRUE)
+articles <- pluck(content_data, "articles")
+articles_df <- as_tibble(articles)
+print(articles_df)
+```
+
+### 3. Function to query API
+
+```{r}
+apiQueryFun <- function(topic, from_date, apiKey) {
+  url <- "https://newsapi.org/v2/everything"
+  
+  query <- list(
+    q = topic,
+    from = from_date,
+    sortBy = "publishedAt",
+    apiKey = apiKey
+  )
+  
+  response <- GET(url, query = query)
+  
+  if (status_code(response) != 200) {
+    stop("Error while fetching data from API.")
+  }
+  
+  content_data <- content(response, as = "parsed", simplifyDataFrame = TRUE)
+  articles <- pluck(content_data, "articles")
+  articles_df <- as_tibble(articles)
+  # print(articles_df)
+  
+  return(articles_df)
+}
+
+```
+
+Testing function
+
+```{r}
+topic <- "climate change"
+from_date <- "2024-09-16"
+apiKey <- 'be56f597af854b8a808b8664ddb8665f'
+news_articles <- apiQueryFun(topic, from_date, api_key)
+print(news_articles)
+```
+
+Grab the data two times
+
+```{r}
+tech_news <- apiQueryFun("technology", "2024-09-16", 'be56f597af854b8a808b8664ddb8665f')
+climate_news <- apiQueryFun("climate change", "2024-09-16", 'be56f597af854b8a808b8664ddb8665f')
+```
+
+### 4. Summarize name of the source for each article
+
+```{r}
+library(dplyr)
+library(purrr)
+tech_news |>
+  count(source$name)
+```
+
+### 5. sort publishedAt and assign tp pub_diff
+
+```{r}
+library(lubridate)
+library(dplyr)
+
+tech_news_new <- tech_news |>
+  mutate(publishedAt = ymd_hms(publishedAt)) |>
+  arrange(publishedAt) |>
+  mutate(pub_diff = publishedAt - lag(publishedAt))
+
+climate_news_new <- climate_news |>
+  mutate(publishedAt = ymd_hms(publishedAt)) |>
+  arrange(publishedAt) |>
+  mutate(pub_diff = publishedAt - lag(publishedAt))
+```
+
+### 6. subset and summarize using map()
+
+```{r}
+tech_news_subset <- tech_news_new |>
+  select(publishedAt, pub_diff)
+
+summary_stats <- tech_news_subset |>
+  map(\(x) list(
+    mean = mean(x, na.rm = TRUE),
+    sd = sd(x, na.rm = TRUE),
+    median = median(x, na.rm = TRUE)
+  ))
+summary_stats
+```
+
+```{r}
+climate_news_subset <- climate_news_new |>
+  select(publishedAt, pub_diff)
+
+summary_stats <- climate_news_subset |>
+  map(\(x) list(
+    mean = mean(x, na.rm = TRUE),
+    sd = sd(x, na.rm = TRUE),
+    median = median(x, na.rm = TRUE)
+  ))
+summary_stats
+```
